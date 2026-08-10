@@ -51,7 +51,7 @@ args = ["/ABSOLUTE/PATH/motion-previs-studio/mcp/motion-previs-mcp.mjs"]
 
 ### Hermes
 
-The bridge is also published standalone at [wassermanproductions/motion-previs-mcp](https://github.com/wassermanproductions/motion-previs-mcp) for Hermes's git-install flow (a catalog entry is proposed in [hermes-agent#60718](https://github.com/NousResearch/hermes-agent/pull/60718) — once merged, `hermes mcp install official/motion-previs-studio` is all you need). Manual config in `~/.hermes/config.yaml` (the app must be running for the tools to respond):
+The bridge is also published standalone at [bloomreel/motion-previs-mcp](https://github.com/MookeeHugo/motion-previs-mcp) for Hermes's git-install flow (a catalog entry is proposed in [hermes-agent#60718](https://github.com/NousResearch/hermes-agent/pull/60718) — once merged, `hermes mcp install official/motion-previs-studio` is all you need). Manual config in `~/.hermes/config.yaml` (the app must be running for the tools to respond):
 
 ```yaml
 mcp_servers:

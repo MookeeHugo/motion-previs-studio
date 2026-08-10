@@ -33,7 +33,7 @@ async function main() {
     const page = await electronApp.firstWindow();
     page.setDefaultTimeout(30000);
     await page.waitForSelector('text=Motion Previs Studio');
-    await page.waitForSelector('text=WassermanProductions.com');
+    await page.waitForSelector('text=BloomReel');
     await page.getByRole('button', { name: 'Import' }).click();
     await page.waitForSelector(`text=${path.basename(samplePath)}`);
     await page.locator('.time-inputs input').nth(1).fill('2.20');

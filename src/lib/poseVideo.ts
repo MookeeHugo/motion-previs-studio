@@ -96,9 +96,7 @@ function frameToPerson(frame: PoseFrame): PosePersonFrame {
  * WebM. It now draws every frame and streams the PNGs to ffmpeg via the shared
  * frame encoder, so the encoded frame count exactly equals the pose frame count
  * and the output is reproducible. The return type stays `Blob` (now mp4 bytes),
- * so callers doing `blob.arrayBuffer()` are unchanged — see App.tsx exportBundle
- * and tests/e2e-electron.cjs. main's savePoseArtifacts detects the mp4 magic and
- * writes it straight through instead of transcoding.
+ * so callers doing `blob.arrayBuffer()` are unchanged — see App.tsx exportBundle.
  */
 export async function createPoseVideoBlob(
   poseData: PoseData,

@@ -5,20 +5,20 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
-  <a href="../../releases"><img src="https://img.shields.io/github/v/release/wassermanproductions/motion-previs-studio?include_prereleases&label=download" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BloomReel%20Proprietary-red.svg" alt="License: BloomReel Proprietary"></a>
+  <a href="../../releases"><img src="https://img.shields.io/github/v/release/bloomreel/motion-previs-studio?include_prereleases&label=download" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/platforms-macOS%20·%20Windows-2f7bf6" alt="Platforms">
-  <a href="https://ko-fi.com/samwasserman"><img src="https://img.shields.io/badge/Ko--fi-support%20Sam%20Wasserman-ff5e5b?logo=kofi&logoColor=white" alt="Support Sam Wasserman on Ko-fi"></a>
+  <a href="https://github.com/MookeeHugo"><img src="https://img.shields.io/badge/BloomReel-AI%20Filmmaker%20Studio-8b5cf6" alt="BloomReel AI Filmmaker Studio"></a>
 </p>
 
 # Motion Previs Studio v4
 
-Developed and created by **Sam Wasserman**.
+Developed and created by **BloomReel Team**.
 
-- [WassermanProductions.com](https://wassermanproductions.com)
-- [Wasserman.ai](https://wasserman.ai)
+- [BloomReel](https://github.com/MookeeHugo)
+- [BloomReel](https://github.com/MookeeHugo)
 
-Open-source under the [Apache License 2.0](LICENSE). Please preserve the [NOTICE](NOTICE) file and cite Sam Wasserman when using or building on this work.
+Distributed under the [BloomReel Proprietary License](LICENSE). This Rust/Tauri edition is closed-source BloomReel software; third-party components retain their own licenses and notices.
 
 Motion Previs Studio v4 is a cross-platform desktop app for turning source video shots into AI-film previsualization and control-reference bundles. It is built for filmmakers who want more precision before generating AI video: select a reference shot, extract pose, depth, camera movement, masks, edges, and control layers, then export a production pack for Seedance, ComfyUI, Blender, Runway, Kling, and similar workflows.
 
@@ -29,10 +29,10 @@ This repository contains the v4 source code. Local signed app bundles and genera
 **macOS (Apple Silicon) — paste one line into Terminal** (⌘-Space, type "Terminal") and it downloads the latest build, installs it to Applications, and opens it — no security warnings:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wassermanproductions/motion-previs-studio/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/MookeeHugo/motion-previs-studio/main/install.sh | bash
 ```
 
-**Windows 11** — download the `win-x64.exe` installer from [GitHub Releases](https://github.com/wassermanproductions/motion-previs-studio/releases). If SmartScreen appears, click **More info → Run anyway**.
+**Windows 11** — download the `win-x64.exe` installer from [GitHub Releases](https://github.com/MookeeHugo/motion-previs-studio/releases). If SmartScreen appears, click **More info → Run anyway**.
 
 If you download the macOS `.dmg` in a browser instead of using the installer above, macOS will falsely claim the app "is damaged" — unsigned browser downloads are quarantined. Drag the app to Applications, then run this once in Terminal and it opens normally from then on:
 
@@ -46,7 +46,7 @@ xattr -cr "/Applications/Motion Previs Studio v4.app"
 - **Subject-masked optical-flow camera solve.** The camera move is solved with Lucas-Kanade optical flow and a RANSAC similarity fit, masking out the tracked subject so the reference camera pan/tilt/zoom/roll is recovered from the background rather than the actor.
 - **Deterministic frame encoding.** Control videos are encoded frame-by-frame through ffmpeg (no `captureStream`, no wall-clock timers), so exports are reproducible.
 - **Security hardening.** Custom `mps://` protocol with `webSecurity` on, an IPC allowlist, and a path allowlist for all file access.
-- **Send to Blockout.** After export, hand a Reference or Depth clip straight to a running [Blockout](https://github.com/wassermanproductions/blockout) session as a ghost underlay — one click, no files to shuffle.
+- **Send to Blockout.** After export, hand a Reference or Depth clip straight to a running [Blockout](https://github.com/MookeeHugo/blockout) session as a ghost underlay — one click, no files to shuffle.
 - **Real per-stage progress and cancel.** A live Prepare → Pose → Camera → Encode → Bundle rail with a working Cancel that aborts cleanly between frames.
 - **Project save / restore.** Sessions (media path, trim, settings, mode, last bundle) are written to the workspace and offered back for restore on relaunch; settings persist.
 - **720p export option.** Scale control layers so the short edge is 720 for Seedance-style targets, or keep the source long-edge scaling.
@@ -99,8 +99,8 @@ xattr -cr "/Applications/Motion Previs Studio v4.app"
 
 Motion Previs Studio is one of three standalone filmmaking apps that fit together. Each works on its own, and they chain: measure a reference here, block and export the shot in Blockout, then split the finished mix in Stem Studio once the edit is done.
 
-- **[Blockout](https://github.com/wassermanproductions/blockout)** — grey-box previs. Stage the scene, block the action, and export video, depth, stills, and a prompt. Send a reference straight from here into a Blockout shot.
-- **[Stem Studio](https://github.com/wassermanproductions/stem-studio)** — splits a finished mix back into dialogue, music, and SFX stems.
+- **[Blockout](https://github.com/MookeeHugo/blockout)** — grey-box previs. Stage the scene, block the action, and export video, depth, stills, and a prompt. Send a reference straight from here into a Blockout shot.
+- **[Stem Studio](https://github.com/MookeeHugo/stem-studio)** — splits a finished mix back into dialogue, music, and SFX stems.
 
 ## Exported Production Pack
 
@@ -141,7 +141,7 @@ Camera-only mode is designed for cases where you like the movement of the refere
 
 ## Agent Control (MCP)
 
-A running app can be driven by an AI agent (Claude Code, Codex, Hermes, or any MCP client) exactly like its sibling [Blockout](https://github.com/wassermanproductions/blockout). The main process runs a localhost-only, token-gated HTTP control server that advertises protocol v1 via `~/.config/motion-previs/control.json` on macOS/Linux or `%APPDATA%\Motion Previs Studio\v4\control.json` on Windows. A zero-dependency stdio MCP bridge (`mcp/motion-previs-mcp.mjs`) forwards tool calls to it.
+A running app can be driven by an AI agent (Claude Code, Codex, Hermes, or any MCP client) exactly like its sibling [Blockout](https://github.com/MookeeHugo/blockout). The main process runs a localhost-only, token-gated HTTP control server that advertises protocol v1 via `~/.config/motion-previs/control.json` on macOS/Linux or `%APPDATA%\Motion Previs Studio\v4\control.json` on Windows. A zero-dependency stdio MCP bridge (`mcp/motion-previs-mcp.mjs`) forwards tool calls to it.
 
 The agent gets 11 tools: `get_state`, `import_file`, `import_url`, `set_range`, `set_mode`, `set_settings`, `run_analysis`, `export_pack`, `list_bundle`, `send_to_blockout`, and `screenshot`. The workflow is import → set range/mode → `run_analysis` → poll `get_state` until done → `export_pack` → `send_to_blockout`.
 
@@ -241,20 +241,20 @@ The screenshot command writes GitHub-ready images to `docs/screenshots/`.
 
 The current local macOS build can run on this machine and can be shared with trusted testers, but it is not yet Apple Developer ID signed or notarized. For broad public sharing, the next packaging step is to add a real Apple Developer certificate, sign the app, notarize it with Apple, and then build the distributable DMG/ZIP.
 
-## Open Source and Attribution
+## License and Third-Party Notices
 
-This project uses Apache-2.0 because it is permissive, standard, and includes a patent grant plus NOTICE preservation. Forks and derivative works must preserve copyright, license, and applicable attribution notices when redistributed.
+This BloomReel Rust/Tauri edition is proprietary software. BloomReel-authored source code, assets, workflows, demos, prompts, documentation, and build configuration may not be redistributed or used to create derivative works except under a separate written agreement with BloomReel Team.
 
-The application source remains Apache-2.0. Packaged FFmpeg/FFprobe are separate
+The application source is BloomReel proprietary. Packaged FFmpeg/FFprobe are separate
 GPL-3.0-or-later components with their own source/compliance bundle. Stable or
 commercial distribution remains gated on upstream/trademark permission, code
 signing, an FFmpeg/H.264 licensing review, and the ordinary third-party
 compliance review.
 
-Standard open-source licenses cannot force every fork to display a prominent in-app credit badge or marketing credit. If you need that kind of mandatory public-facing credit, use a custom source-available license instead of a standard open-source license. For this open-source release, the repo includes:
+Third-party components retain their own license obligations. This repository includes:
 
-- `LICENSE`: Apache License 2.0.
-- `NOTICE`: Sam Wasserman / Wasserman Productions / Wasserman.ai attribution notice.
+- `LICENSE`: BloomReel Proprietary License.
+- `NOTICE`: BloomReel Team attribution notice.
 - `CITATION.cff`: GitHub-compatible citation metadata.
 - `MODIFICATIONS.md`: summary of portability changes from the upstream baseline.
 - `THIRD_PARTY_NOTICES.md`: packaged executable/model provenance and licenses.
@@ -270,18 +270,14 @@ Standard open-source licenses cannot force every fork to display a prominent in-
 
 ## Attribution
 
-Motion Previs Studio v4 was developed and created by **Sam Wasserman** for **Wasserman Productions** and **Wasserman.ai**.
+Motion Previs Studio v4 was developed and created by **BloomReel Team** for the **BloomReel AI Filmmaker Studio**.
 
-- [WassermanProductions.com](https://wassermanproductions.com)
-- [Wasserman.ai](https://wasserman.ai)
+- [BloomReel project entry](https://github.com/MookeeHugo)
 
 Windows support contributed and maintained by **Gumbii Digital** ([github.com/GumbiiDigital](https://github.com/GumbiiDigital)) — see [MODIFICATIONS.md](MODIFICATIONS.md).
 
-## Support
+## BloomReel
 
-A few people asked if they could send tips to support my work developing open source tools. So I set up an optional way in case anyone wants to.
+Motion Previs Studio is maintained as part of the BloomReel AI Filmmaker Studio toolchain.
 
-No pressure at all. Using the apps, sharing them, starring the repositories, and contributing code all help too. Thank you.
-
-- [GitHub Sponsors](https://github.com/sponsors/wassermanproductions)
-- [Ko-fi](https://ko-fi.com/samwasserman)
+- [BloomReel project entry](https://github.com/MookeeHugo)

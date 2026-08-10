@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './desktopBridge';
 import { App } from './App';
 import { registerControlHandler } from './control/handler';
 import './styles.css';

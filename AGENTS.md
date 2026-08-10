@@ -50,7 +50,7 @@ public/             generated MediaPipe/model/bin assets (gitignored).
 2. **Security.** All renderer file access goes through the `mps://` protocol and the `security.cjs` allowlist (`isAllowedPath` / `allowImportSource`). Never hand the renderer a raw `file://` path or accept an arbitrary path in an IPC handler without validating it against the allowlist. `webSecurity` stays on.
 3. **Quality score has one source.** `src/lib/quality.ts` is the definition; `shared/quality.cjs` mirrors it and `verify:quality` asserts they agree. Change both together.
 4. **Cancellation is cooperative.** Long loops (pose, camera, aiDepth, frameEncoder) accept an `AbortSignal` and check it between frames via `throwIfAborted` / `signal.aborted`, throwing an `Error` whose `name` is `'AbortError'`. Preserve that contract so Cancel stays clean.
-5. **Credit + license stay intact.** Apache-2.0, the `NOTICE` file, and the in-app "Created by Sam Wasserman · wassermanproductions.com · wasserman.ai · Apache-2.0" credit must be preserved.
+5. **Credit + license stay intact.** BloomReel proprietary licensing, the `NOTICE` file, and the in-app "BloomReel Team · BloomReel AI Filmmaker Studio · Proprietary" credit must be preserved.
 
 ## Send to Blockout
 

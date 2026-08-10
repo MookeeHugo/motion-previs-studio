@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Motion Previs Studio is distributed under Apache-2.0. Its dependency graph is
+Motion Previs Studio BloomReel-authored source is proprietary software. Its dependency graph is
 recorded in `package-lock.json`; release builds also publish an SBOM.
 
 The packaged media executables are separate works under their own licenses:

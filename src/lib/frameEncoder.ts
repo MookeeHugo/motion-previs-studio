@@ -6,9 +6,9 @@
  * Replaces MediaRecorder + canvas.captureStream, which encoded on a wall-clock
  * timer and silently dropped or duplicated frames under load. Instead we render
  * every frame to a canvas, serialize it to a PNG blob, and stream the bytes to
- * the main process (electron/frameEncode.cjs), which pipes them straight into
- * ffmpeg (`-f image2pipe -framerate <fps>`) to produce an H.264 mp4. The number
- * of frames encoded exactly equals the number of frames we draw.
+ * the Tauri backend, which pipes them straight into ffmpeg (`-f image2pipe -framerate <fps>`)
+ * to produce an H.264 mp4. The number of frames encoded exactly equals the number of frames
+ * we draw.
  *
  * `encodeFrames` returns the mp4 as a Blob so existing callers (App.tsx's
  * exportBundle, the e2e harness) can keep doing `blob.arrayBuffer()` unchanged.
