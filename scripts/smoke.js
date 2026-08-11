@@ -101,11 +101,24 @@ async function waitForCdp(port) {
   throw lastError || new Error('CDP 未启动');
 }
 
-function send(ws, method, params = {}) {
+function send(ws, method, params = {}, timeoutMs = 30000) {
   const id = ++send.nextId;
   ws.send(JSON.stringify({ id, method, params }));
   return new Promise((resolveSend, rejectSend) => {
-    send.pending.set(id, { resolve: resolveSend, reject: rejectSend });
+    const timer = setTimeout(() => {
+      send.pending.delete(id);
+      rejectSend(new Error(`CDP command timed out: ${method}`));
+    }, timeoutMs);
+    send.pending.set(id, {
+      resolve: (value) => {
+        clearTimeout(timer);
+        resolveSend(value);
+      },
+      reject: (error) => {
+        clearTimeout(timer);
+        rejectSend(error);
+      }
+    });
   });
 }
 send.nextId = 0;
@@ -143,38 +156,36 @@ async function openCdpPage(wsUrl) {
 }
 
 async function waitForLoad(ws, timeoutMs = 30000) {
-  let settled = false;
-  await Promise.race([
-    new Promise((resolveLoad) => {
-    const onMessage = (event) => {
+  let onMessage;
+  try {
+    await Promise.race([
+      new Promise((resolveLoad) => {
+    onMessage = (event) => {
       const msg = JSON.parse(event.data);
       if (msg.method === 'Page.loadEventFired') {
-        ws.removeEventListener('message', onMessage);
-        settled = true;
         resolveLoad();
       }
     };
     ws.addEventListener('message', onMessage);
-    }),
-    (async () => {
-      await sleep(timeoutMs);
-      if (settled) return;
-      const readyState = await evaluate(ws, 'document.readyState').catch(() => 'unknown');
-      if (readyState === 'interactive' || readyState === 'complete') {
-        settled = true;
-        return;
-      }
-      throw new Error(`页面加载超时：readyState=${readyState}`);
-    })()
-  ]);
+      }),
+      (async () => {
+        await sleep(timeoutMs);
+        const readyState = await evaluate(ws, 'document.readyState', 5000).catch(() => 'unknown');
+        if (readyState === 'interactive' || readyState === 'complete') return;
+        throw new Error(`页面加载超时：readyState=${readyState}`);
+      })()
+    ]);
+  } finally {
+    if (onMessage) ws.removeEventListener('message', onMessage);
+  }
 }
 
-async function evaluate(ws, expression) {
+async function evaluate(ws, expression, timeoutMs = 30000) {
   const result = await send(ws, 'Runtime.evaluate', {
     expression,
     awaitPromise: true,
     returnByValue: true
-  });
+  }, timeoutMs);
   if (result.exceptionDetails) {
     const details =
       result.exceptionDetails.exception?.description ||
