@@ -67,3 +67,11 @@ The MCP bridge `mcp/motion-previs-mcp.mjs` is a zero-dependency Node ≥18 stdio
 ## No private notes
 
 Do **not** add private QA notes, internal handoff docs, model-specific scratch files, or any "for the agent" markdown to the repo or its git history. Keep the working tree and history free of internal-only files. If you need scratch space, use a location outside the repo.
+
+## OpenCodeReview Workflow
+
+- For PR, branch, or workspace code review, prefer OpenCodeReview delegation mode: run `ocr delegate preview --format json --background "<business context>"` first, then run `ocr delegate rule --format json <files...>` for the files under review.
+- This app uses a Rust/Tauri-specific `.opencodereview/rule.json`; focus review on `src-tauri/` commands, capabilities, Tauri config, renderer bridge contracts, scripts, packaging, and local file/media boundaries.
+- OCR is used for deterministic file selection, include/exclude handling, and rule resolution only. The active reviewer/model still makes the actual defect judgment; do not default to OCR LLM mode as a substitute for review.
+- Review output must account for every `reviewable_files` entry from preview. If a file is skipped, record the reason. Changes touching Tauri permissions, filesystem access, external processes, signing/installers, project-file migrations, or user-data writes require extra scrutiny.
+- After editing `.opencodereview/rule.json`, verify representative rule matching with `ocr rules check <representative file>`.
