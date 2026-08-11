@@ -186,6 +186,66 @@ export type ShotBibleEntry = {
   selected: boolean;
 };
 
+export type MotionKeyframe = {
+  id: string;
+  shot: string;
+  time: number;
+  duration: number;
+  beat: string;
+  actorMove: string;
+  cameraMove: string;
+  lens: string;
+  speed: string;
+  emotion: string;
+  transition: string;
+  risk: string;
+};
+
+export type MotionSubject = {
+  id: string;
+  name: string;
+  role: string;
+  path: string;
+  speed: string;
+  risk: string;
+};
+
+export type MotionShotBeat = {
+  id: string;
+  title: string;
+  duration: number;
+  camera: string;
+  action: string;
+  emotion: string;
+};
+
+export type MotionActionNode = {
+  id: string;
+  label: string;
+  time: number;
+  note: string;
+};
+
+export type MotionPlanBlueprint = {
+  id: string;
+  projectTitle: string;
+  sceneTitle: string;
+  shotTitle: string;
+  sourceName: string;
+  duration: number;
+  fps: number;
+  frameSize: { width: number; height: number };
+  logline: string;
+  creativeIntent: string;
+  visualStyle: string;
+  subjects: MotionSubject[];
+  keyframes: MotionKeyframe[];
+  shots: MotionShotBeat[];
+  actionNodes: MotionActionNode[];
+  transitions: string[];
+  riskNotes: string[];
+};
+
 export type QualityReport = {
   score: number;
   tracking: 'Missing' | 'Review' | 'Good' | 'Excellent';

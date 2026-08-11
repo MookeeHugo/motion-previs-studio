@@ -14,6 +14,19 @@ import type {
 import type { AppInfo } from './types';
 
 declare global {
+  const FilesetResolver: {
+    forVisionTasks(path: string): Promise<unknown>;
+  };
+  const PoseLandmarker: {
+    createFromOptions(vision: unknown, options: Record<string, unknown>): Promise<{
+      detectForVideo(video: HTMLVideoElement, timestampMs: number): {
+        landmarks?: Array<Array<Partial<import('./types').Landmark>>>;
+        worldLandmarks?: Array<Array<Partial<import('./types').Landmark>>>;
+      };
+      close(): void;
+    }>;
+  };
+
   interface Window {
     motionPrevis?: {
       openMedia: () => Promise<MediaInfo | null>;
@@ -48,10 +61,11 @@ declare global {
         openPoseKeypoints?: unknown;
         resolution?: ExportResolution;
       }) => Promise<ExportResult>;
-      encodeFramesBegin: (payload: { fps: number; width: number; height: number }) => Promise<{ sessionId: string }>;
-      encodeFramesFrame: (payload: { sessionId: string; buffer: ArrayBuffer }) => Promise<{ frames: number }>;
-      encodeFramesEnd: (payload: { sessionId: string }) => Promise<{ buffer: ArrayBuffer; frames: number }>;
-      encodeFramesCancel: (payload: { sessionId: string }) => Promise<{ cancelled: boolean }>;
+      savePlanningBundle?: (payload: Record<string, unknown>) => Promise<ExportResult>;
+      encodeFramesBegin?: (payload: { fps: number; width: number; height: number }) => Promise<{ sessionId: string }>;
+      encodeFramesFrame?: (payload: { sessionId: string; buffer: ArrayBuffer }) => Promise<{ frames: number }>;
+      encodeFramesEnd?: (payload: { sessionId: string }) => Promise<{ buffer: ArrayBuffer; frames: number }>;
+      encodeFramesCancel?: (payload: { sessionId: string }) => Promise<{ cancelled: boolean }>;
       cancelAnalysis: () => Promise<{ cancelled: number }>;
       openPath: (targetPath: string) => Promise<string>;
       revealPath: (targetPath: string) => Promise<void>;

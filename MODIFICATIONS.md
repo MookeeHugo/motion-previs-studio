@@ -6,7 +6,7 @@ the upstream Motion Previs Studio 4.1.0 baseline frozen at commit
 `c257de2ad5aba1ba49b0a0a4f2a44d6b6f660288`. Windows support contributed and
 maintained by **Gumbii Digital** ([github.com/GumbiiDigital](https://github.com/GumbiiDigital)).
 
-Original application: Copyright 2026 Sam Wasserman. The original Apache-2.0
+Original application: Copyright 2026 BloomReel Team. The current Rust/Tauri edition is BloomReel proprietary; previous public-version notices, where applicable,
 license, NOTICE, attribution, and in-app credit remain intact.
 
 ## File-level notice exceptions

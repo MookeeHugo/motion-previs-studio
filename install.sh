@@ -6,10 +6,10 @@
 # browser-downloaded unsigned apps (terminal downloads aren't quarantined).
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/wassermanproductions/motion-previs-studio/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/MookeeHugo/motion-previs-studio/main/install.sh | bash
 set -euo pipefail
 
-REPO="wassermanproductions/motion-previs-studio"
+REPO="bloomreel/motion-previs-studio"
 
 if [ "$(uname -m)" != "arm64" ]; then
   echo "Motion Previs Studio for macOS currently ships for Apple Silicon (M1–M4) only." >&2

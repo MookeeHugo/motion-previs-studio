@@ -1,15 +1,6 @@
-Motion Previs Studio 4.1.0
-Copyright 2026 Sam Wasserman
+Motion Previs Studio
+Copyright (c) 2026 BloomReel Team. All rights reserved.
 
-Motion Previs Studio was developed and created by Sam Wasserman
-for Wasserman Productions and Wasserman.ai.
+This BloomReel Rust/Tauri edition is proprietary software. BloomReel-authored source code, assets, workflows, demos, prompts, documentation, and build configuration may not be copied, modified, published, distributed, sublicensed, sold, hosted, reverse engineered, or used to create derivative works except under a separate written agreement with BloomReel Team.
 
-Wasserman Productions: https://wassermanproductions.com
-Wasserman.ai: https://wasserman.ai
-
-This product includes open-source software dependencies. See package.json,
-package-lock.json, THIRD_PARTY_NOTICES.md, and dependency license files for
-third-party notices.
-
-If you redistribute this project or derivative works in source or binary form,
-please preserve this NOTICE file as described by the Apache License, Version 2.0.
+Third-party components remain governed by their own licenses and notices. See THIRD_PARTY_NOTICES.md, package metadata, dependency lockfiles, and component license files where applicable.

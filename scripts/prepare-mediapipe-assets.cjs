@@ -3,41 +3,60 @@
 // Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 
 const crypto = require('node:crypto');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const https = require('node:https');
 const os = require('node:os');
-const extractZip = require('extract-zip');
 
 const root = path.resolve(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'ASSET_MANIFEST.json'), 'utf8'));
 const wasmSrc = path.join(root, 'node_modules', '@mediapipe', 'tasks-vision', 'wasm');
 const wasmDest = path.join(root, 'public', 'mediapipe', 'wasm');
+const visionBundleSrc = path.join(root, 'node_modules', '@mediapipe', 'tasks-vision', 'vision_bundle.mjs');
+const visionBundleDest = path.join(root, 'public', 'mediapipe', 'tasks-vision', 'vision_bundle.mjs');
+const transformersDistDir = path.join(root, 'node_modules', '@huggingface', 'transformers', 'dist');
+const transformersDestDir = path.join(root, 'public', 'transformers');
+const onnxRuntimeDistDir = path.join(root, 'node_modules', 'onnxruntime-web', 'dist');
 const modelDir = path.join(root, 'public', 'models');
+const transformersModelDir = path.join(modelDir, 'transformers');
 const binDir = path.join(root, 'runtime', 'bin');
 const mediaDir = path.join(root, 'runtime', 'media');
 const verifyOnly = process.argv.includes('--verify-only');
+const analysisOnly = process.argv.includes('--analysis-only');
 
 async function main() {
   if (!verifyOnly) {
     copyDir(wasmSrc, wasmDest);
+    copyRequiredFile(
+      visionBundleSrc,
+      visionBundleDest,
+      'MediaPipe vision_bundle.mjs 缺失。请先安装 @mediapipe/tasks-vision，再运行 npm run prepare-analysis-assets。'
+    );
+    copyTransformersRuntime();
+    copyOnnxRuntimeWebAssets();
     for (const asset of manifest.poseModels) {
       await downloadVerified(asset, path.join(modelDir, asset.name));
     }
-    const ytDlp = ytDlpTarget();
-    await downloadVerified(ytDlp, path.join(binDir, ytDlp.name));
-    if (process.platform !== 'win32') fs.chmodSync(path.join(binDir, ytDlp.name), 0o755);
-    if (process.platform === 'win32') await prepareWindowsMediaTools();
+    for (const asset of depthAnythingAssets()) {
+      await downloadVerified(asset, path.join(transformersModelDir, asset.path));
+    }
+    if (!analysisOnly) {
+      const ytDlp = ytDlpTarget();
+      await downloadVerified(ytDlp, path.join(binDir, ytDlp.name));
+      if (process.platform !== 'win32') fs.chmodSync(path.join(binDir, ytDlp.name), 0o755);
+      if (process.platform === 'win32') await prepareWindowsMediaTools();
+    }
   }
 
   verifyAssets();
-  console.log(`[assets] ${verifyOnly ? 'verified' : 'prepared'} pinned assets for ${process.platform}`);
+  console.log(`[assets] ${verifyOnly ? 'verified' : 'prepared'} ${analysisOnly ? 'analysis' : 'all'} assets for ${process.platform}`);
 }
 
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) {
-    throw new Error(`MediaPipe wasm source is missing: ${src}. Run npm ci first.`);
+    throw new Error(`MediaPipe WASM 缺失：${src}。请先安装 @mediapipe/tasks-vision，再运行 npm run prepare-analysis-assets。`);
   }
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
@@ -45,6 +64,44 @@ function copyDir(src, dest) {
     const to = path.join(dest, entry.name);
     if (entry.isDirectory()) copyDir(from, to);
     else fs.copyFileSync(from, to);
+  }
+}
+
+function copyRequiredFile(src, dest, message) {
+  if (!fs.existsSync(src)) throw new Error(message);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.copyFileSync(src, dest);
+  requireNonEmpty(dest, 10_000);
+}
+
+function copyTransformersRuntime() {
+  if (!fs.existsSync(transformersDistDir)) {
+    throw new Error('@huggingface/transformers 未安装。请先运行 npm install，再运行 npm run prepare-analysis-assets。');
+  }
+  fs.mkdirSync(transformersDestDir, { recursive: true });
+  const candidates = ['transformers.min.js', 'transformers.js', 'transformers.web.min.js', 'transformers.web.js'];
+  let copied = 0;
+  for (const name of candidates) {
+    const src = path.join(transformersDistDir, name);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, path.join(transformersDestDir, name));
+      copied += 1;
+    }
+  }
+  if (!copied) {
+    throw new Error('未找到 Transformers.js dist 文件，无法准备 Depth Anything 离线运行时。');
+  }
+}
+
+function copyOnnxRuntimeWebAssets() {
+  if (!fs.existsSync(onnxRuntimeDistDir)) {
+    throw new Error('onnxruntime-web 未安装。请先运行 npm install，再运行 npm run prepare-analysis-assets。');
+  }
+  fs.mkdirSync(transformersDestDir, { recursive: true });
+  for (const name of onnxRuntimeWebAssets()) {
+    const src = path.join(onnxRuntimeDistDir, name);
+    if (!fs.existsSync(src)) throw new Error(`ONNX Runtime Web 资产缺失：${src}`);
+    fs.copyFileSync(src, path.join(transformersDestDir, name));
   }
 }
 
@@ -58,7 +115,7 @@ async function downloadVerified(asset, outPath) {
   const tempPath = `${outPath}.${process.pid}.download`;
   fs.rmSync(tempPath, { force: true });
   try {
-    await download(asset.url, tempPath, 0);
+    await downloadWithRetries(asset.url, tempPath);
     const actual = sha256(tempPath);
     if (actual !== asset.sha256) {
       throw new Error(`SHA-256 mismatch for ${asset.name}: expected ${asset.sha256}, got ${actual}`);
@@ -68,6 +125,80 @@ async function downloadVerified(asset, outPath) {
   } finally {
     fs.rmSync(tempPath, { force: true });
   }
+}
+
+async function downloadWithRetries(url, outPath) {
+  const attempts = Number(process.env.MPS_ASSET_DOWNLOAD_ATTEMPTS || 4);
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      fs.rmSync(outPath, { force: true });
+      await download(url, outPath, 0);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts) break;
+      const waitMs = 1000 * attempt;
+      console.warn(`[assets] 下载失败，${waitMs}ms 后重试 ${attempt + 1}/${attempts}: ${error.message}`);
+      await sleep(waitMs);
+    }
+  }
+  try {
+    console.warn(`[assets] Node 下载仍失败，改用系统下载器兜底：${url}`);
+    fs.rmSync(outPath, { force: true });
+    await downloadWithNativeTool(url, outPath);
+    return;
+  } catch (nativeError) {
+    throw new Error(`${lastError?.message || lastError}; native fallback: ${nativeError.message || nativeError}`);
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function downloadWithNativeTool(url, outPath) {
+  if (process.platform === 'win32') {
+    return runDownloadCommand('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri $env:MPS_ASSET_URL -OutFile $env:MPS_ASSET_OUT -Headers @{ 'User-Agent' = 'motion-previs-studio-assets/1' } -MaximumRedirection 8"
+    ], { MPS_ASSET_URL: url, MPS_ASSET_OUT: outPath });
+  }
+  return runDownloadCommand('curl', [
+    '-L',
+    '--fail',
+    '--connect-timeout',
+    '20',
+    '--max-time',
+    '180',
+    '-A',
+    'motion-previs-studio-assets/1',
+    '-o',
+    outPath,
+    url
+  ]);
+}
+
+function runDownloadCommand(command, args, env = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { env: { ...process.env, ...env }, stdio: 'ignore' });
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`${command} download timed out`));
+    }, 180_000);
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on('exit', (code, signal) => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(`${command} exited with ${signal || code}`));
+    });
+  });
 }
 
 function download(url, outPath, redirects) {
@@ -101,12 +232,20 @@ function verifyAssets() {
   for (const name of manifest.mediapipe.requiredWasmFiles) {
     requireNonEmpty(path.join(wasmDest, name), 10_000);
   }
+  requireNonEmpty(visionBundleDest, 10_000);
   for (const asset of manifest.poseModels) {
     verifyHash(path.join(modelDir, asset.name), asset.sha256);
   }
-  const ytDlp = ytDlpTarget();
-  verifyHash(path.join(binDir, ytDlp.name), ytDlp.sha256);
-  verifyMediaTools();
+  verifyTransformersRuntime();
+  verifyOnnxRuntimeWebAssets();
+  for (const asset of depthAnythingAssets()) {
+    verifyHash(path.join(transformersModelDir, asset.path), asset.sha256, asset.minBytes || 100);
+  }
+  if (!analysisOnly) {
+    const ytDlp = ytDlpTarget();
+    verifyHash(path.join(binDir, ytDlp.name), ytDlp.sha256);
+    verifyMediaTools();
+  }
 }
 
 function verifyMediaTools() {
@@ -124,6 +263,7 @@ function verifyMediaTools() {
 }
 
 async function prepareWindowsMediaTools() {
+  const extractZip = require('extract-zip');
   const target = manifest.mediaTools.windows;
   const folder = path.join(mediaDir, 'win32-x64');
   const filesValid = [
@@ -179,6 +319,32 @@ function fileMatches(file, expected, minBytes) {
   } catch {
     return false;
   }
+}
+
+function verifyTransformersRuntime() {
+  const candidates = ['transformers.min.js', 'transformers.js', 'transformers.web.min.js', 'transformers.web.js'];
+  if (!candidates.some((name) => fs.existsSync(path.join(transformersDestDir, name)))) {
+    throw new Error('Depth Anything 运行时缺失：public/transformers/transformers*.js');
+  }
+}
+
+function verifyOnnxRuntimeWebAssets() {
+  for (const name of onnxRuntimeWebAssets()) {
+    requireNonEmpty(path.join(transformersDestDir, name), name.endsWith('.wasm') ? 1_000_000 : 10_000);
+  }
+}
+
+function onnxRuntimeWebAssets() {
+  return [
+    'ort-wasm-simd-threaded.asyncify.mjs',
+    'ort-wasm-simd-threaded.asyncify.wasm',
+    'ort-wasm-simd-threaded.mjs',
+    'ort-wasm-simd-threaded.wasm'
+  ];
+}
+
+function depthAnythingAssets() {
+  return manifest.depthAnything?.files || [];
 }
 
 function requireNonEmpty(file, minBytes) {

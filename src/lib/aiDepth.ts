@@ -9,9 +9,36 @@ type DepthImage = {
 };
 
 type DepthEstimator = (input: unknown) => Promise<{ depth: DepthImage } | Array<{ depth: DepthImage }>>;
+type TransformersModule = {
+  RawImage: {
+    fromCanvas: (canvas: HTMLCanvasElement) => unknown;
+  };
+  pipeline: unknown;
+  env: {
+    allowRemoteModels?: boolean;
+    allowLocalModels?: boolean;
+    useBrowserCache?: boolean;
+    localModelPath?: string;
+    cacheDir?: string;
+    backends?: {
+      onnx?: {
+        wasm?: {
+          wasmPaths?: string | { mjs: string; wasm: string };
+        };
+      };
+    };
+  };
+};
 
 const DEPTH_ANYTHING_REPOSITORY = 'Xenova/depth-anything-small-hf';
 export const DEPTH_ANYTHING_REVISION = '2e942621ab9f2371c1df9eb223291b5ac31475e6';
+const DEPTH_ANYTHING_LOCAL_FILES = [
+  { path: 'config.json', minBytes: 500 },
+  { path: 'preprocessor_config.json', minBytes: 200 },
+  { path: 'quantize_config.json', minBytes: 500 },
+  { path: 'onnx/model_quantized.onnx', minBytes: 20_000_000 }
+];
+let transformersModulePromise: Promise<TransformersModule> | null = null;
 
 export async function createAiDepthVideoBlob(
   videoUrl: string,
@@ -21,7 +48,8 @@ export async function createAiDepthVideoBlob(
   progress?: ProgressFn,
   signal?: AbortSignal
 ) {
-  const [{ RawImage }, estimator] = await Promise.all([import('@huggingface/transformers'), loadDepthEstimator(progress)]);
+  const [transformers, estimator] = await Promise.all([loadTransformersModule(), loadDepthEstimator(progress)]);
+  const { RawImage } = transformers;
   const video = document.createElement('video');
   video.crossOrigin = 'anonymous';
   video.muted = true;
@@ -70,7 +98,7 @@ export async function createAiDepthVideoBlob(
         outputCtx.drawImage(depthCanvas, 0, 0, width, height);
       },
       onProgress: (fraction, index) => {
-        progress?.(0.7 + fraction * 0.12, `Rendering AI depth ${index + 1}/${totalFrames}`);
+        progress?.(0.7 + fraction * 0.12, `正在渲染 AI 深度 ${index + 1}/${totalFrames}`);
       }
     });
   } finally {
@@ -100,35 +128,125 @@ function releaseVideo(video: HTMLVideoElement) {
 }
 
 const loadDepthEstimator = createRetryableAsync(async (progress?: ProgressFn): Promise<DepthEstimator> => {
-  progress?.(0.65, 'Loading Depth Anything model');
-  const { pipeline, env } = await import('@huggingface/transformers');
-  env.allowRemoteModels = true;
+  progress?.(0.65, '正在加载 Depth Anything 深度模型');
+  const { pipeline, env } = await loadTransformersModule();
+  configureTransformersCache(env);
+  const localCacheReady = await isDepthAnythingLocalCacheReady();
+  progress?.(
+    0.65,
+    localCacheReady
+      ? 'Depth Anything 本机离线缓存已就绪'
+      : 'Depth Anything 本机缓存不完整，将使用网络下载并写入浏览器缓存'
+  );
   const options = {
     dtype: 'q8' as const,
     revision: DEPTH_ANYTHING_REVISION,
+    local_files_only: localCacheReady,
     progress_callback: (event: { status?: string; file?: string; progress?: number }) => {
       if (event.status === 'progress') {
-        progress?.(0.65, `Downloading depth model ${Math.round(event.progress || 0)}%`);
+        progress?.(0.65, `正在下载并缓存深度模型 ${Math.round(event.progress || 0)}%`);
       }
     }
   };
+  const depthPipeline = pipeline as unknown as (
+    task: string,
+    repository: string,
+    options: Record<string, unknown>
+  ) => Promise<DepthEstimator>;
+  try {
+    return await createDepthPipeline(depthPipeline, options);
+  } catch (error) {
+    if (!localCacheReady) throw error;
+    console.warn('[ai-depth] 本机 Depth Anything 缓存加载失败，改用远程/浏览器缓存兜底。', error);
+    progress?.(0.65, '本机深度模型缓存异常，正在改用远程/浏览器缓存兜底');
+    return createDepthPipeline(depthPipeline, { ...options, local_files_only: false });
+  }
+});
+
+function createDepthPipeline(
+  pipeline: (task: string, repository: string, options: Record<string, unknown>) => Promise<DepthEstimator>,
+  options: Record<string, unknown>
+) {
   return createDevicePipelineWithFallback<DepthEstimator>({
-    pipeline: pipeline as unknown as (
-      task: string,
-      repository: string,
-      options: Record<string, unknown>
-    ) => Promise<DepthEstimator>,
+    pipeline,
     task: 'depth-estimation',
     repository: DEPTH_ANYTHING_REPOSITORY,
     options,
     probeWebGpu: () => probeWebGpuAdapter(
       (navigator as Navigator & { gpu?: { requestAdapter?: () => Promise<unknown> } }).gpu
     ),
-    onFallback: (error) => console.warn('[ai-depth] WebGPU unavailable; using pinned CPU/WASM fallback.', error),
-    onCpuReady: () => console.info('[ai-depth] pinned CPU/WASM fallback ready.'),
-    onWebGpuFailure: (error) => console.error('[ai-depth] WebGPU initialization failed after adapter preflight.', error)
+    onFallback: (error) => console.warn('[ai-depth] WebGPU 不可用，改用 CPU/WASM 缓存路径。', error),
+    onCpuReady: () => console.info('[ai-depth] CPU/WASM 深度路径已就绪。'),
+    onWebGpuFailure: (error) => console.error('[ai-depth] WebGPU 预检后初始化失败。', error)
   });
-});
+}
+
+async function loadTransformersModule(): Promise<TransformersModule> {
+  if (!transformersModulePromise) {
+    transformersModulePromise = (async () => {
+      const localCandidates = [
+        publicAssetUrl('transformers/transformers.min.js'),
+        publicAssetUrl('transformers/transformers.js'),
+        publicAssetUrl('transformers/transformers.web.min.js'),
+        publicAssetUrl('transformers/transformers.web.js')
+      ];
+      let lastError: unknown;
+      for (const url of localCandidates) {
+        try {
+          const mod = (await import(/* @vite-ignore */ url)) as Partial<TransformersModule>;
+          if (mod.RawImage && mod.pipeline && mod.env) return mod as TransformersModule;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      try {
+        return (await import('@huggingface/transformers')) as TransformersModule;
+      } catch (error) {
+        lastError = error;
+      }
+      throw new Error(
+        `Depth Anything 运行时不可用。请安装 @huggingface/transformers，或运行 npm run prepare-analysis-assets 复制离线运行时。${errorMessage(lastError)}`
+      );
+    })();
+  }
+  return transformersModulePromise;
+}
+
+function configureTransformersCache(env: TransformersModule['env']) {
+  env.allowRemoteModels = true;
+  env.useBrowserCache = true;
+  env.allowLocalModels = true;
+  env.localModelPath = publicAssetUrl('models/transformers/');
+  if (env.backends?.onnx?.wasm) {
+    env.backends.onnx.wasm.wasmPaths = {
+      mjs: publicAssetUrl('transformers/ort-wasm-simd-threaded.asyncify.mjs'),
+      wasm: publicAssetUrl('transformers/ort-wasm-simd-threaded.asyncify.wasm')
+    };
+  }
+}
+
+async function isDepthAnythingLocalCacheReady() {
+  const checks = DEPTH_ANYTHING_LOCAL_FILES.map((asset) =>
+    localAssetExists(`models/transformers/${DEPTH_ANYTHING_REPOSITORY}/${asset.path}`, asset.minBytes)
+  );
+  const results = await Promise.all(checks);
+  return results.every(Boolean);
+}
+
+async function localAssetExists(relativePath: string, minBytes: number) {
+  try {
+    const response = await fetch(publicAssetUrl(relativePath), { method: 'HEAD', cache: 'no-store' });
+    if (!response.ok) return false;
+    const size = Number(response.headers.get('content-length') || 0);
+    return !size || size >= minBytes;
+  } catch {
+    return false;
+  }
+}
+
+function publicAssetUrl(relativePath: string) {
+  return new URL(relativePath.replace(/^\/+/, ''), window.location.href).href;
+}
 
 function waitForMetadata(video: HTMLVideoElement) {
   return new Promise<void>((resolve, reject) => {
@@ -163,4 +281,8 @@ function seekVideo(video: HTMLVideoElement, time: number) {
       requestAnimationFrame(done);
     }
   });
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error || '');
 }

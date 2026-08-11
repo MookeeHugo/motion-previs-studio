@@ -1,6 +1,26 @@
-import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 import type { Landmark, PoseAnalysisSettings, PoseData, PoseFrame, PoseModelKey, PosePersonFrame, ProgressFn } from '../types';
 import { throwIfAborted } from '../types';
+
+type PoseLandmarkerInstance = {
+  detectForVideo: (video: HTMLVideoElement, timestampMs: number) => {
+    landmarks?: Array<Array<Partial<Landmark>>>;
+    worldLandmarks?: Array<Array<Partial<Landmark>>>;
+  };
+  close: () => void;
+};
+
+type PoseLandmarkerFactory = {
+  createFromOptions: (vision: unknown, options: Record<string, unknown>) => Promise<PoseLandmarkerInstance>;
+};
+
+type FilesetResolverFactory = {
+  forVisionTasks: (path: string) => Promise<unknown>;
+};
+
+type VisionTasksModule = {
+  FilesetResolver: FilesetResolverFactory;
+  PoseLandmarker: PoseLandmarkerFactory;
+};
 
 export const DEFAULT_POSE_SETTINGS: PoseAnalysisSettings = {
   poseModel: 'lite',
@@ -70,13 +90,14 @@ const POSE_MODEL_ASSETS: Record<PoseModelKey, string> = {
 };
 
 type PoseRuntime = {
-  landmarker: PoseLandmarker;
+  landmarker: PoseLandmarkerInstance;
   modelKey: PoseModelKey;
   delegate: 'GPU' | 'CPU';
   fallbackUsed: boolean;
 };
 
 const poseLandmarkerPromises = new Map<string, Promise<PoseRuntime>>();
+let visionTasksModulePromise: Promise<VisionTasksModule> | null = null;
 let reservedTimestampMaxMs = 0;
 
 export async function loadPoseLandmarker(settings: Partial<PoseAnalysisSettings> = DEFAULT_POSE_SETTINGS, progress?: ProgressFn) {
@@ -89,7 +110,8 @@ export async function loadPoseLandmarker(settings: Partial<PoseAnalysisSettings>
 }
 
 async function createPoseLandmarker(settings: PoseAnalysisSettings, progress?: ProgressFn): Promise<PoseRuntime> {
-  progress?.(0.03, `Loading ${poseModelLabel(settings.poseModel)}`);
+  progress?.(0.03, `正在加载 ${poseModelLabel(settings.poseModel)}`);
+  const { FilesetResolver, PoseLandmarker } = await loadVisionTasksModule(progress);
   const vision = await FilesetResolver.forVisionTasks(publicAssetUrl('mediapipe/wasm'));
   const common = {
     runningMode: 'VIDEO' as const,
@@ -123,11 +145,43 @@ async function createPoseLandmarker(settings: PoseAnalysisSettings, progress?: P
     }
   }
 
-  throw new Error(`Could not load MediaPipe pose model. ${errorMessage(lastError)}`);
+  throw new Error(`无法加载 MediaPipe 姿态模型。${errorMessage(lastError)}`);
 }
 
 function publicAssetUrl(relativePath: string) {
   return new URL(relativePath.replace(/^\/+/, ''), window.location.href).href;
+}
+
+async function loadVisionTasksModule(progress?: ProgressFn): Promise<VisionTasksModule> {
+  if (!visionTasksModulePromise) {
+    visionTasksModulePromise = (async () => {
+      const localUrl = publicAssetUrl('mediapipe/tasks-vision/vision_bundle.mjs');
+      const attempts: Array<() => Promise<unknown>> = [
+        () => import(/* @vite-ignore */ localUrl),
+        () => import('@mediapipe/tasks-vision')
+      ];
+      let lastError: unknown;
+      for (const attempt of attempts) {
+        try {
+          const mod = (await attempt()) as Partial<VisionTasksModule>;
+          if (mod.FilesetResolver && mod.PoseLandmarker) {
+            progress?.(0.035, 'MediaPipe 本地运行时已就绪');
+            return mod as VisionTasksModule;
+          }
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      const globals = globalThis as typeof globalThis & Partial<VisionTasksModule>;
+      if (globals.FilesetResolver && globals.PoseLandmarker) {
+        return { FilesetResolver: globals.FilesetResolver, PoseLandmarker: globals.PoseLandmarker };
+      }
+      throw new Error(
+        `MediaPipe 运行时不可用。请先运行 npm run prepare-analysis-assets 生成 public/mediapipe 离线资源。${errorMessage(lastError)}`
+      );
+    })();
+  }
+  return visionTasksModulePromise;
 }
 
 export async function analyzePoseVideo(
@@ -180,7 +234,7 @@ export async function analyzePoseVideo(
         poses,
         source: primary ? 'detected' : 'missing'
       });
-      progress?.(0.18 + (index / totalFrames) * 0.62, `Tracking pose ${index + 1}/${totalFrames}`);
+      progress?.(0.18 + (index / totalFrames) * 0.62, `正在跟踪姿态 ${index + 1}/${totalFrames}`);
     }
 
     const frames = postProcessFrames(rawFrames, settings);
@@ -404,24 +458,24 @@ function buildDiagnostics(
   const filled = frames.filter((frame) => frame.filled).length;
 
   if (runtime.fallbackUsed) {
-    diagnostics.push(`${poseModelLabel(settings.poseModel)} was not available, so Lite was used for this run.`);
+    diagnostics.push(`${poseModelLabel(settings.poseModel)} 不可用，本次已回退到 Lite 模型。`);
   }
   if (!rawDetected) {
-    diagnostics.push('No body pose was detected. Use a clearer subject, lower confidence, or switch to Camera only mode.');
+    diagnostics.push('未检测到人体姿态。请使用主体更清晰的素材、降低置信度，或切换为仅摄影机模式。');
   } else if (rawRatio < 0.45) {
-    diagnostics.push('Pose detection is intermittent. Lower detection confidence or trim to frames where the body is more visible.');
+    diagnostics.push('姿态检测不连续。建议降低检测置信度，或把镜头范围裁到身体更清楚的片段。');
   }
   if (filled > 0) {
-    diagnostics.push(`Filled ${filled} short pose gaps using a ${settings.temporalWindow}-frame temporal window.`);
+    diagnostics.push(`已用 ${settings.temporalWindow} 帧时间窗口补齐 ${filled} 个短缺口。`);
   }
   if (averageScore > 0 && averageScore < settings.detectionConfidence) {
-    diagnostics.push('Average landmark confidence is below the selected detection threshold.');
+    diagnostics.push('平均关键点置信度低于当前检测阈值。');
   }
   if (settings.maxPeople > 1 && !rawFrames.some((frame) => (frame.poses?.length || 0) > 1)) {
-    diagnostics.push('Multi-person tracking is enabled, but only one person was detected in this range.');
+    diagnostics.push('已启用多人跟踪，但当前范围只检测到一名主体。');
   }
   if (!diagnostics.length) {
-    diagnostics.push('Pose track is ready for export.');
+    diagnostics.push('姿态轨迹已可导出。');
   }
   return diagnostics;
 }

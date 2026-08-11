@@ -2056,3 +2056,220 @@ select {
   border-color: var(--danger);
   color: var(--danger);
 }
+
+/* Motion planning demo/editor additions */
+button,
+.primary-action,
+.secondary-action,
+.icon-button,
+.round-tool {
+  white-space: nowrap;
+}
+
+:root {
+  font-family:
+    "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.import-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.demo-action {
+  grid-column: 1 / -1;
+  min-height: 36px;
+  border-color: rgba(240, 191, 78, 0.42);
+  color: #ffe4a3;
+  background: linear-gradient(180deg, rgba(81, 59, 22, 0.72), rgba(38, 31, 18, 0.88));
+}
+
+.preview-content img,
+.media-visual-image,
+.camera-path-preview img,
+.pose-overlay-preview img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.camera-path-preview .media-visual-image,
+.pose-overlay-preview .media-visual-image {
+  position: absolute;
+  inset: 0;
+  opacity: 0.72;
+}
+
+.motion-plan-panel {
+  gap: 10px;
+  max-height: 58vh;
+  overflow: auto;
+  border-color: rgba(116, 232, 242, 0.24);
+  background:
+    linear-gradient(180deg, rgba(19, 28, 31, 0.96), rgba(10, 13, 15, 0.98)),
+    var(--panel);
+}
+
+.motion-logline {
+  margin: 0;
+  color: #d6e1e5;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.motion-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.motion-summary-grid .metric {
+  min-height: 46px;
+  padding: 8px;
+}
+
+.shot-beat-grid,
+.subject-grid,
+.keyframe-list,
+.risk-note-list {
+  display: grid;
+  gap: 8px;
+}
+
+.shot-beat-card,
+.subject-card,
+.keyframe-row,
+.risk-note-list span {
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: #0c1012;
+}
+
+.shot-beat-card,
+.subject-card {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+}
+
+.shot-beat-card strong,
+.subject-card strong {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.shot-beat-card span,
+.subject-card span,
+.keyframe-meta span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.shot-beat-card p,
+.subject-card p {
+  margin: 0;
+  color: #cbd5d8;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.shot-beat-card em,
+.subject-card em {
+  color: var(--amber);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.action-node-rail {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.action-node-pill {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border: 1px solid rgba(116, 232, 242, 0.24);
+  border-radius: 999px;
+  color: #d9fbff;
+  background: rgba(116, 232, 242, 0.09);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.keyframe-row {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+}
+
+.keyframe-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.keyframe-meta strong {
+  color: var(--cyan);
+  font-size: 13px;
+}
+
+.keyframe-row label {
+  display: grid;
+  gap: 4px;
+}
+
+.keyframe-row label span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.keyframe-row input,
+.keyframe-row textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: #090d0f;
+  font-size: 11px;
+  line-height: 1.35;
+  outline: 0;
+}
+
+.keyframe-row input {
+  height: 30px;
+  padding: 0 8px;
+}
+
+.keyframe-row textarea {
+  min-height: 44px;
+  padding: 7px 8px;
+  resize: vertical;
+}
+
+.keyframe-row input:focus,
+.keyframe-row textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(22, 136, 255, 0.16);
+}
+
+.risk-note-list span {
+  padding: 8px;
+  color: #ffd7bd;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@media (max-width: 1160px) {
+  .motion-plan-panel {
+    max-height: none;
+  }
+}
+
+.motion-project-title { color: var(--cyan); font-size: 13px; line-height: 1.3; }

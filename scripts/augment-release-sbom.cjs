@@ -105,7 +105,7 @@ function externalComponents() {
     id: 'depth-anything-first-use',
     name: manifest.depthAnything.repository,
     version: manifest.depthAnything.revision,
-    license: 'Apache-2.0',
+    license: manifest.depthAnything.license,
     url: `https://huggingface.co/${manifest.depthAnything.repository}/tree/${manifest.depthAnything.revision}`,
     scope: 'optional',
     type: 'machine-learning-model',

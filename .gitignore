@@ -7,6 +7,8 @@ node_modules/
 
 # Build and packaged app output
 dist/
+src-tauri/target/
+public/transformers/
 release/
 *.app/
 *.dmg

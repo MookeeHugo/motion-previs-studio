@@ -1,8 +1,8 @@
 /**
- * Renderer side of the agent control server (see electron/control.cjs and
- * mcp/motion-previs-mcp.mjs). External agents — Claude Code, Codex, Hermes, any
- * MCP client — drive the app through this whitelist of actions, executed
- * against the same App state/flows the UI uses via the window.__mps surface.
+ * Renderer side of the agent control server (see mcp/motion-previs-mcp.mjs).
+ * External agents — Claude Code, Codex, Hermes, any MCP client — drive the app
+ * through this whitelist of actions, executed against the same App state/flows
+ * the UI uses via the window.__mps surface.
  */
 
 import type { SubjectMode } from '../types';
