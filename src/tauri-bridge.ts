@@ -57,18 +57,22 @@ const TauriBridge = (() => {
     }
   }
 
+  function safeExternalUrl(url: string) {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" ? parsed.toString() : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function openExternal(url: string) {
-    if (!isTauri) {
-      window.open(url, "_blank");
+    const safeUrl = safeExternalUrl(url);
+    if (!safeUrl) {
+      console.warn("Blocked external URL outside the HTTPS allowlist");
       return;
     }
-    try {
-      const { open } = await import("@tauri-apps/plugin-shell");
-      await open(url);
-    } catch (e) {
-      console.error("Failed to open external URL:", e);
-      window.open(url, "_blank");
-    }
+    window.open(safeUrl, "_blank", "noopener,noreferrer");
   }
 
   return {

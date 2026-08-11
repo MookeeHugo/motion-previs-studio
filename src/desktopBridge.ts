@@ -197,14 +197,8 @@ function fallbackBundle(payload: Record<string, unknown>): ExportResult {
 }
 
 async function openLocalPath(targetPath: string): Promise<string> {
-  const core = await resolveCore();
-  if (!core) return targetPath;
-  try {
-    const shell = await import('@tauri-apps/plugin-shell');
-    await shell.open(targetPath);
-  } catch {
-    // Keep the app usable even if the shell plugin rejects a path.
-  }
+  // Local reveal is intentionally best-effort in the Tauri migration branch.
+  // Keeping it renderer-only avoids granting broad shell-open permissions.
   return targetPath;
 }
 
@@ -293,12 +287,6 @@ const api: Partial<NonNullable<Window['motionPrevis']>> = {
 
   async openExternal(url: string) {
     if (!/^https:\/\//i.test(url)) return;
-    const core = await resolveCore();
-    if (core) {
-      const shell = await import('@tauri-apps/plugin-shell');
-      await shell.open(url);
-      return;
-    }
     window.open(url, '_blank', 'noopener,noreferrer');
   },
 

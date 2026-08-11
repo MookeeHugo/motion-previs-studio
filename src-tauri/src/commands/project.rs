@@ -1,9 +1,39 @@
 //! Project management commands for Motion Previs Studio
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{command, AppHandle, Manager};
 use uuid::Uuid;
+
+const MAX_PROJECT_ID_LEN: usize = 128;
+const MAX_PROJECT_JSON_BYTES: u64 = 20 * 1024 * 1024;
+
+pub(crate) fn validate_project_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || id.len() > MAX_PROJECT_ID_LEN {
+        return Err("Project id length is invalid".to_string());
+    }
+    if id == "." || id == ".." || id.contains("..") {
+        return Err("Project id cannot contain path traversal".to_string());
+    }
+    if !id.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_')) {
+        return Err("Project id contains unsupported characters".to_string());
+    }
+    Ok(())
+}
+
+fn project_file(projects_dir: &Path, id: &str) -> Result<PathBuf, String> {
+    validate_project_id(id)?;
+    Ok(projects_dir.join(format!("{}.mprevis", id)))
+}
+
+async fn read_project_text(path: &Path) -> Result<String, String> {
+    if let Ok(meta) = tokio::fs::metadata(path).await {
+        if meta.len() > MAX_PROJECT_JSON_BYTES {
+            return Err("Project file is too large to load safely".to_string());
+        }
+    }
+    tokio::fs::read_to_string(path).await.map_err(|e| format!("Read: {}", e))
+}
 
 /// Get the app data directory
 #[command]
@@ -98,22 +128,23 @@ pub async fn list_projects() -> Result<Vec<ProjectMeta>, String> {
     Ok(projects)
 }
 
-async fn load_project_from_path(path: &PathBuf) -> Result<Project, String> {
-    let content = tokio::fs::read_to_string(path).await.map_err(|e| format!("Read: {}", e))?;
+async fn load_project_from_path(path: &Path) -> Result<Project, String> {
+    let content = read_project_text(path).await?;
     serde_json::from_str(&content).map_err(|e| format!("Parse: {}", e))
 }
 
 #[command]
 pub async fn load_project(id: String) -> Result<Project, String> {
     let dir = dirs::document_dir().map(|d| d.join("MotionPrevis")).ok_or_else(|| "Cannot find documents directory".to_string())?;
-    load_project_from_path(&dir.join(format!("{}.mprevis", id))).await
+    let path = project_file(&dir, &id)?;
+    load_project_from_path(&path).await
 }
 
 #[command]
 pub async fn save_project(project: Project) -> Result<String, String> {
     let dir = dirs::document_dir().map(|d| d.join("MotionPrevis")).ok_or_else(|| "Cannot find documents directory".to_string())?;
     tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
-    let path = dir.join(format!("{}.mprevis", project.id));
+    let path = project_file(&dir, &project.id)?;
     let content = serde_json::to_string_pretty(&project).map_err(|e| e.to_string())?;
     tokio::fs::write(&path, content).await.map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
@@ -130,7 +161,7 @@ pub async fn create_project(name: String) -> Result<Project, String> {
 #[command]
 pub async fn delete_project(id: String) -> Result<(), String> {
     let dir = dirs::document_dir().map(|d| d.join("MotionPrevis")).ok_or_else(|| "Cannot find documents directory".to_string())?;
-    let path = dir.join(format!("{}.mprevis", id));
+    let path = project_file(&dir, &id)?;
     if !path.exists() { return Err("Not found".to_string()); }
     tokio::fs::remove_file(&path).await.map_err(|e| e.to_string())?;
     Ok(())
