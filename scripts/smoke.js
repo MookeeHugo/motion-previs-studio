@@ -16,6 +16,12 @@ function npxCommand(args) {
     : { command: 'npx', args };
 }
 
+function npmRunArgs(args) {
+  return process.platform === 'win32'
+    ? { command: 'cmd.exe', args: ['/d', '/s', '/c', 'npm', ...args] }
+    : { command: 'npm', args };
+}
+
 function killTree(child) {
   if (!child?.pid) return;
   if (process.platform === 'win32') {
@@ -202,19 +208,51 @@ async function waitForHttp(url, timeoutMs = 30000) {
   throw lastError || new Error(`无法访问前端：${url}`);
 }
 
+function buildIfNeeded() {
+  const build = npmRunArgs(['run', 'build:if-needed']);
+  const result = spawnSync(build.command, build.args, {
+    cwd: resolve('.'),
+    env: process.env,
+    stdio: 'inherit'
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`前端构建失败，退出码：${result.status}`);
+  }
+}
+
 async function startFrontend() {
   if (EXTERNAL_URL) return { url: EXTERNAL_URL, child: null, port: null };
+  buildIfNeeded();
   const port = await findPort(FRONTEND_START_PORT);
   const url = `http://${HOST}:${port}`;
   const vite = npxCommand(['vite', 'preview', '--host', HOST, '--port', String(port), '--strictPort']);
+  const output = [];
   const child = spawn(vite.command, vite.args, {
     cwd: resolve('.'),
     env: { ...process.env, MPS_DEV_PORT: String(port) },
-    stdio: 'ignore'
+    stdio: ['ignore', 'pipe', 'pipe']
   });
-  await waitForHttp(url);
-  return { url, child, port };
+  child.stdout.on('data', (chunk) => output.push(chunk.toString()));
+  child.stderr.on('data', (chunk) => output.push(chunk.toString()));
+  let childExit = null;
+  child.once('exit', (code, signal) => {
+    childExit = { code, signal };
+  });
+  while (!childExit) {
+    try {
+      await waitForHttp(url, 1500);
+      return { url, child, port };
+    } catch (error) {
+      if (Date.now() - startFrontend.startedAt > 45000) {
+        throw new Error(`无法访问前端：${url}\n${output.join('').slice(-3000)}\n${error.message || error}`);
+      }
+      await sleep(300);
+    }
+  }
+  throw new Error(`vite preview 过早退出：${JSON.stringify(childExit)}\n${output.join('').slice(-3000)}`);
 }
+startFrontend.startedAt = 0;
 
 async function main() {
   const browser = BROWSER_CANDIDATES.find((candidate) => candidate && existsSync(candidate));
@@ -225,6 +263,7 @@ async function main() {
   mkdirSync(OUTPUT_DIR, { recursive: true });
   mkdirSync(PROFILE_DIR, { recursive: true });
 
+  startFrontend.startedAt = Date.now();
   const frontend = await startFrontend();
   const debugPort = await findPort(DEBUG_START_PORT);
   const browserProcess = spawn(browser, [
@@ -265,7 +304,15 @@ async function main() {
     })()`);
 
     const state = await evaluateRetry(ws, `(async () => {
-      localStorage.removeItem('motion-previs.session.v2');
+      const expectedUrl = ${JSON.stringify(frontend.url)};
+      if (!location.href.startsWith(expectedUrl)) {
+        throw new Error('浏览器未加载预期前端：' + location.href + ' expected=' + expectedUrl);
+      }
+      try {
+        localStorage.removeItem('motion-previs.session.v2');
+      } catch (error) {
+        throw new Error('localStorage 不可用：' + location.href + ' ' + (error?.message || error));
+      }
       window.__mpsModuleProbe = '未探测';
       const moduleScript = document.querySelector('script[type="module"][src]')?.src;
       if (moduleScript && !document.querySelector('button')) {
