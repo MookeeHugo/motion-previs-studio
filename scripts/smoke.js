@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { join, resolve } from 'node:path';
@@ -14,6 +14,15 @@ function npxCommand(args) {
   return process.platform === 'win32'
     ? { command: 'cmd.exe', args: ['/d', '/s', '/c', 'npx', ...args] }
     : { command: 'npx', args };
+}
+
+function killTree(child) {
+  if (!child?.pid) return;
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+  } else {
+    child.kill('SIGTERM');
+  }
 }
 
 const BROWSER_CANDIDATES = [
@@ -320,8 +329,8 @@ async function main() {
       throw new Error(`Smoke 验证失败：${failures.join('；')}`);
     }
   } finally {
-    browserProcess.kill();
-    frontend.child?.kill();
+    killTree(browserProcess);
+    killTree(frontend.child);
     await sleep(300);
     try {
       rmSync(PROFILE_DIR, { recursive: true, force: true });

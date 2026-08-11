@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { join, resolve } from 'node:path';
@@ -12,6 +12,15 @@ const PROFILE_DIR = join(tmpdir(), `motion-previs-studio-tauri-smoke-${process.p
 
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+function killTree(child) {
+  if (!child?.pid) return;
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+  } else {
+    child.kill('SIGTERM');
+  }
 }
 
 function canBind(port) {
@@ -294,7 +303,7 @@ async function main() {
       throw new Error(`Tauri smoke 验证失败：${failures.join('；')}`);
     }
   } finally {
-    if (!child.killed) child.kill();
+    killTree(child);
     await sleep(500);
     try {
       rmSync(PROFILE_DIR, { recursive: true, force: true });
