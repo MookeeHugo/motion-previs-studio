@@ -142,17 +142,31 @@ async function openCdpPage(wsUrl) {
   return ws;
 }
 
-async function waitForLoad(ws) {
-  await new Promise((resolveLoad) => {
+async function waitForLoad(ws, timeoutMs = 30000) {
+  let settled = false;
+  await Promise.race([
+    new Promise((resolveLoad) => {
     const onMessage = (event) => {
       const msg = JSON.parse(event.data);
       if (msg.method === 'Page.loadEventFired') {
         ws.removeEventListener('message', onMessage);
+        settled = true;
         resolveLoad();
       }
     };
     ws.addEventListener('message', onMessage);
-  });
+    }),
+    (async () => {
+      await sleep(timeoutMs);
+      if (settled) return;
+      const readyState = await evaluate(ws, 'document.readyState').catch(() => 'unknown');
+      if (readyState === 'interactive' || readyState === 'complete') {
+        settled = true;
+        return;
+      }
+      throw new Error(`页面加载超时：readyState=${readyState}`);
+    })()
+  ]);
 }
 
 async function evaluate(ws, expression) {
