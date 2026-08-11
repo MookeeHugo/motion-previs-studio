@@ -319,16 +319,27 @@ async function main() {
         window.__mpsModuleProbe = await import(moduleScript).then(() => '主模块 import 成功').catch((error) => String(error?.stack || error));
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
+      const pageText = () => document.body.innerText || document.body.textContent || '';
       const clickByText = (needle) => {
         const buttons = Array.from(document.querySelectorAll('button'));
-        const button = buttons.find((item) => item.innerText.includes(needle) || item.getAttribute('aria-label')?.includes(needle));
+        const button = buttons.find((item) => (item.innerText || item.textContent || '').includes(needle) || item.getAttribute('aria-label')?.includes(needle));
         if (!button) throw new Error('找不到按钮：' + needle + '；页面文本：' + ('title=' + document.title + ' moduleProbe=' + window.__mpsModuleProbe + ' resources=' + JSON.stringify(performance.getEntriesByType('resource').map((r) => ({name:r.name, type:r.initiatorType, dur:Math.round(r.duration)})).slice(0,12)) + ' html=' + document.documentElement.outerHTML.slice(0, 900)));
         button.click();
       };
       clickByText('加载雨夜灯塔示例');
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const renderDeadline = Date.now() + 12000;
+      while (Date.now() < renderDeadline) {
+        if (
+          pageText().includes('雨夜灯塔') &&
+          document.querySelectorAll('.keyframe-row').length >= 8 &&
+          document.querySelectorAll('.shot-beat-card').length >= 4
+        ) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
       const persistedSession = JSON.parse(localStorage.getItem('motion-previs.session.v2') || 'null');
-      const text = document.body.innerText;
+      const text = pageText();
       const chineseCount = (text.match(/[\\u4e00-\\u9fff]/g) || []).length;
       return {
         title: document.title,
