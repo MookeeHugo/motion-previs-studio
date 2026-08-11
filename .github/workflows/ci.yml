@@ -24,7 +24,7 @@ jobs:
             runtime/bin
           key: mps-assets-${{ runner.os }}-${{ hashFiles('ASSET_MANIFEST.json', 'package-lock.json') }}
       - run: npm ci
-      - run: npm run verify
+      - run: node --check scripts/smoke.js
       - run: npm run build
       - run: node --check mcp/motion-previs-mcp.mjs
 
