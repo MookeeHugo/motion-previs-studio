@@ -1,0 +1,102 @@
+{
+  "include": [
+    "src-tauri/**/*.rs",
+    "src-tauri/Cargo.toml",
+    "src-tauri/Cargo.lock",
+    "src-tauri/tauri*.conf.json",
+    "src-tauri/capabilities/**/*.json",
+    "src-tauri/permissions/**/*.json",
+    "src/**/*.{ts,tsx,js,jsx}",
+    "tests/**/*.{ts,tsx,js,jsx,rs}",
+    "scripts/**/*.{js,mjs,cjs,ts,ps1}",
+    "package.json",
+    "package-lock.json",
+    "README*.md",
+    "AGENTS.md"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/src-tauri/target/**",
+    "**/src-tauri/gen/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/release/**",
+    "**/output/**",
+    "**/coverage/**",
+    "**/.playwright-cli/**",
+    "**/*.snap",
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.jpeg",
+    "**/*.gif",
+    "**/*.mp4",
+    "**/*.mov",
+    "**/*.wav",
+    "**/*.zip",
+    "**/*.dmg",
+    "**/*.exe",
+    "**/*.app"
+  ],
+  "rules": [
+    {
+      "path": "src-tauri/src/**/*.rs",
+      "merge_system_rule": true,
+      "rule": "Review Rust/Tauri backend code as a security boundary. Tauri commands, invoke handlers, plugins, and shared state must expose the minimum capability needed. Treat paths, URLs, shell arguments, project files, and serialized input as untrusted: require allowlists, canonicalization, scope checks, and friendly errors. Production command paths must not panic, unwrap/expect on recoverable input, swallow errors, leak tokens/control ports/raw paths/stack traces to the renderer, or leave resources running after cancellation. Long-running work needs cancellation, timeouts, cleanup, and concurrency protection."
+    },
+    {
+      "path": "src-tauri/src/commands/**/*.rs",
+      "merge_system_rule": true,
+      "rule": "Tauri command modules must validate input size, path ownership, extension/MIME, permission scope, repeated execution, and failure recovery. Return stable serde contracts instead of internal structs or platform-specific raw paths. For file import/export, external processes, media handling, and local caches, verify no path traversal, accidental overwrite, partial write artifact, or post-cancel write can occur."
+    },
+    {
+      "path": "src-tauri/tauri*.conf.json",
+      "merge_system_rule": true,
+      "rule": "Review Tauri configuration for identifier, bundle settings, protocols, windows, CSP/security settings, capabilities, external binaries, updater/signing, file associations, and resource inclusion. Do not widen permissions for convenience, enable unsafe webview options, allow arbitrary shell/open/path access, or package build artifacts, secrets, or machine-specific absolute paths."
+    },
+    {
+      "path": "src-tauri/capabilities/**/*.json",
+      "merge_system_rule": true,
+      "rule": "Tauri capability and permission files must be least-privilege. Only allow plugin commands, windows, and scopes needed by the current UI flow. Shell, fs, dialog, process, and opener permissions must be specific to commands and path scopes; avoid wildcards and arbitrary external commands. Every new permission should trace to a command, UI flow, and test."
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "merge_system_rule": true,
+      "rule": "Review Cargo.toml changes for dependency necessity, maintenance quality, feature creep, build-dependency risk, Tauri plugin compatibility, and supply-chain exposure. Do not downgrade Rust/Tauri dependencies to bypass compilation. build.rs, external binaries, native dependencies, and optional features must be justified and packaging-safe."
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "merge_system_rule": true,
+      "rule": "Cargo.lock changes must match Cargo.toml or real Rust imports. Flag unexplained large churn, unknown crates, duplicate versions, yanked/unmaintained packages, and versions incompatible with the selected Tauri/plugin stack. A standalone lockfile churn needs a clear source."
+    },
+    {
+      "path": "src/**/*.{ts,tsx,js,jsx}",
+      "merge_system_rule": true,
+      "rule": "Review frontend/renderer code for correct Tauri bridge usage. Do not bypass the bridge or assume direct fs/shell/network access. invoke parameters and returned shapes must match Rust command contracts. User files, media blobs, project JSON, caches, and export results need size/type/lifecycle/error-state protection. State updates should follow existing store/bridge patterns and avoid duplicate sources, races, post-cancel setState, leaked event listeners, or exposing local paths/secrets in UI/logs."
+    },
+    {
+      "path": "scripts/**/*.{js,mjs,cjs,ts,ps1}",
+      "merge_system_rule": true,
+      "rule": "Scripts must pass subprocess arguments safely, use controlled working/output/temp directories, propagate exit codes, and clean temporary resources. Avoid machine-specific absolute paths and interactive prompts in automation. Do not print tokens, full environments, signing material, or private user paths. Installer and smoke scripts must never delete files outside this application workspace."
+    },
+    {
+      "path": "tests/**/*.{ts,tsx,js,jsx,rs}",
+      "merge_system_rule": true,
+      "rule": "Tests should cover real failure modes, not only happy paths: invalid paths, cancellation/timeouts, permission denial, external process failure, empty input, corrupt project files, cross-platform path separators, repeated execution, and no sensitive information leakage. Avoid real external services, fixed user-machine paths, and fragile sleeps."
+    },
+    {
+      "path": "package.json",
+      "merge_system_rule": true,
+      "rule": "Review package scripts and dependencies. Scripts must match README/AGENTS instructions, must not depend on untracked files, and must not silently delete user data. dev/build/smoke/tauri:build flows should be reproducible. Dependency changes should avoid supply-chain risk, duplicate frameworks, and unnecessary large packages."
+    },
+    {
+      "path": "README*.md",
+      "merge_system_rule": true,
+      "rule": "Documentation must describe implemented and runnable behavior only. Commands, platform requirements, paths, permissions, and packaging notes must match package scripts, Tauri config, and code. Do not present planned, beta, or smoke-only behavior as fully shipped, and do not include secrets, internal endpoints, or private machine paths."
+    },
+    {
+      "path": "AGENTS.md",
+      "merge_system_rule": true,
+      "rule": "AGENTS rules must not conflict with README, package scripts, Tauri config, or existing project constraints. Review workflow additions should be executable and verifiable; avoid private scratch notes, stale status, or model-internal records."
+    }
+  ]
+}
