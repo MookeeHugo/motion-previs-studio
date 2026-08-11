@@ -2334,9 +2334,3 @@ function toShotTitle(name: string) {
   if (!base) return '镜头 01A';
   return `镜头 · ${base.slice(0, 42)}`;
 }
-
-
-
-
-
-
